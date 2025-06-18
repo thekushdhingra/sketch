@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SketchPicker } from "react-color";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -39,6 +40,7 @@ const generateRoomCode = () =>
 const App = () => {
   const [page, setPage] = useState<"main" | "create" | "join" | "draw">("main");
   const [roomCode, setRoomCode] = useState("");
+  const [colorPickerOpen, setColorPickerOpen] = useState<boolean>(false);
   const [inputCode, setInputCode] = useState("");
   const [roomId, setRoomId] = useState("");
   const [lines, setLines] = useState<LineType[]>([]);
@@ -104,6 +106,7 @@ const App = () => {
   const handleMouseDown = (e: any) => {
     isDrawing[1](true);
     const pos = e.target.getStage().getPointerPosition();
+    setColorPickerOpen(false);
     const newLines = [
       ...lines,
       { tool, points: [pos.x, pos.y], color: brushColor, width: brushWidth },
@@ -116,6 +119,7 @@ const App = () => {
     if (!isDrawing[0]) return;
     const stage = e.target.getStage();
     const point = stage.getPointerPosition();
+    setColorPickerOpen(false);
     let lastLine = lines[lines.length - 1];
     lastLine = {
       ...lastLine,
@@ -187,7 +191,7 @@ const App = () => {
   if (page === "draw") {
     return (
       <div className="w-full h-screen flex flex-col">
-        <div className="p-4 bg-gray-100 flex items-center justify-between">
+        <div className="p-4 bg-gray-100 flex items-center justify-between z-20">
           <span>
             Room Code: <b>{roomCode}</b>
           </span>
@@ -199,12 +203,25 @@ const App = () => {
             <option value="brush">Brush</option>
             <option value="eraser">Eraser</option>
           </select>
-          <input
-            type="color"
-            value={brushColor}
-            onChange={(e) => setbrushColor(e.target.value)}
-            className="mx-2"
-          />
+          <div
+            className="p-2 aspect-square w-[30px] h-[30px] z-20"
+            style={{ background: brushColor }}
+            onClick={() => {
+              setColorPickerOpen(!colorPickerOpen);
+            }}
+          ></div>
+          {colorPickerOpen && (
+            <div className="fixed top-[40px] left-1/2 -translate-x-1/2">
+              <SketchPicker
+                color={brushColor}
+                onChange={(color: any) => {
+                  if (color && color.hex) {
+                    setbrushColor(color.hex);
+                  }
+                }}
+              />
+            </div>
+          )}
           <input
             type="range"
             min={1}
@@ -218,7 +235,7 @@ const App = () => {
         <Stage
           width={window.innerWidth}
           height={window.innerHeight - 60}
-          className="flex-1"
+          className="flex-1 z-10"
           onMouseDown={handleMouseDown}
           onMousemove={handleMouseMove}
           onMouseup={handleMouseUp}
