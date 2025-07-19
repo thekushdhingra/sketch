@@ -15,6 +15,10 @@ import {
 } from "firebase/firestore";
 import { Stage, Layer, Line } from "react-konva";
 import { getDocs } from "firebase/firestore";
+import CSSIoButton from "./components/css-io-button";
+import { FaPlus } from "react-icons/fa";
+import { TbArrowsJoin } from "react-icons/tb";
+import { BiCopy } from "react-icons/bi";
 type LineType = {
   tool: string;
   points: number[];
@@ -35,13 +39,15 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const generateRoomCode = () =>
-  Math.random().toString(36).substring(2, 8).toUpperCase();
+  Math.random().toString(36).substring(2, 8).toLowerCase();
 
 const App = () => {
-  const [page, setPage] = useState<"main" | "create" | "join" | "draw">("main");
+  const [page, setPage] = useState<"main" | "draw">("main");
   const [roomCode, setRoomCode] = useState("");
   const [colorPickerOpen, setColorPickerOpen] = useState<boolean>(false);
   const [inputCode, setInputCode] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalContent, setModalContent] = useState<"join" | "create">("create");
   const [roomId, setRoomId] = useState("");
   const [lines, setLines] = useState<LineType[]>([]);
   const [tool, setTool] = useState<string>("brush");
@@ -67,7 +73,6 @@ const App = () => {
     });
     setRoomCode(code);
     setRoomId(docRef.id);
-    setPage("draw");
     listenToRoom(docRef.id);
   };
   useEffect(() => {
@@ -81,9 +86,11 @@ const App = () => {
     };
     cleanUpRooms();
   }, []);
-
   const handleJoinRoom = async () => {
-    const q = query(collection(db, "rooms"), where("code", "==", inputCode));
+    const q = query(
+      collection(db, "rooms"),
+      where("code", "==", inputCode.toLowerCase())
+    );
 
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
@@ -136,64 +143,149 @@ const App = () => {
 
   if (page === "main") {
     return (
-      <div className="flex flex-col items-center justify-center h-screen">
-        <h1 className="text-7xl mb-8">Sketch App</h1>
-        <button
-          className="mb-4 px-6 py-2 bg-blue-500 text-white rounded"
-          onClick={() => setPage("create")}
-        >
-          Create Room
-        </button>
-        <button
-          className="px-6 py-2 bg-green-500 text-white rounded"
-          onClick={() => setPage("join")}
-        >
-          Join Room
-        </button>
-      </div>
-    );
-  }
-
-  if (page === "create") {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen">
-        <h2 className="text-xl mb-4">Create a Room</h2>
-        <button
-          className="px-6 py-2 bg-blue-500 text-white rounded"
-          onClick={handleCreateRoom}
-        >
-          Generate Room
-        </button>
-      </div>
-    );
-  }
-
-  if (page === "join") {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen">
-        <h2 className="text-xl mb-4">Join a Room</h2>
-        <input
-          className="mb-4 px-4 py-2 border rounded"
-          placeholder="Enter Room Code"
-          value={inputCode}
-          onChange={(e) => setInputCode(e.target.value)}
+      <>
+        <video
+          src="/bg.mp4"
+          className="fixed top-0 left-0 w-screen h-screen object-cover z-[-1]"
+          autoPlay
+          muted
         />
-        <button
-          className="px-6 py-2 bg-green-500 text-white rounded"
-          onClick={handleJoinRoom}
-        >
-          Join
-        </button>
-      </div>
+        {modalOpen && (
+          <div className="fixed top-0 left-0 w-screen h-screen flex flex-col items-center justify-center bg-[#0005] z-50">
+            <div className="bg-white p-4 rounded-xl w-[30vw] h-[20rem] shadow-md z-50">
+              {modalContent === "join" && (
+                <>
+                  <h2 className="text-lg font-bold mb-2 text-center text-[3rem]">
+                    Join Room
+                  </h2>
+                  <label htmlFor="roomCode">Room Code:</label>
+                  <input
+                    type="text"
+                    placeholder="Enter room code"
+                    name="roomCode"
+                    value={inputCode}
+                    onChange={(e) => setInputCode(e.target.value)}
+                    className="border border-gray-300 p-2 rounded w-full mb-2 outline-none"
+                  />
+                  <div className="flex items-center justify-center">
+                    <CSSIoButton
+                      onClick={() => {
+                        handleJoinRoom();
+                        setModalOpen(false);
+                      }}
+                    >
+                      <TbArrowsJoin />
+                      Join Room
+                    </CSSIoButton>
+                  </div>
+                </>
+              )}
+              {modalContent === "create" && (
+                <>
+                  <h2 className="text-lg font-bold mb-2 text-center text-[3rem]">
+                    Room Created
+                  </h2>
+                  <p className="text-center my-8">
+                    Your room code is:{" "}
+                    {roomCode ? (
+                      <b className="p-4 bg-gray-200 rounded-xl">
+                        {roomCode.toUpperCase()}
+                        <button
+                          className="bg-transparent border-none outline-none ml-4 text-lg"
+                          onClick={() => {
+                            navigator.clipboard
+                              .writeText(roomCode.toUpperCase())
+                              .then(() => {
+                                const successSpan =
+                                  document.querySelector("#success-copy");
+                                if (successSpan) {
+                                  successSpan.textContent = "Copied Room Code";
+                                  setTimeout(() => {
+                                    successSpan.textContent = "";
+                                  }, 2000);
+                                }
+                              })
+                              .catch((err) => {
+                                console.error("Failed to copy text: ", err);
+                              });
+                          }}
+                        >
+                          <BiCopy />
+                        </button>
+                      </b>
+                    ) : (
+                      <p>Loading...</p>
+                    )}
+                  </p>
+                  <p
+                    className="text-green-500 text-center text-2xl mb-4"
+                    id="success-copy"
+                  ></p>
+                  {roomCode && (
+                    <div className="flex items-center justify-center">
+                      <CSSIoButton
+                        onClick={() => {
+                          setPage("draw");
+                        }}
+                      >
+                        <TbArrowsJoin />
+                        Join Room
+                      </CSSIoButton>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+        <div className="flex flex-col items-center justify-center h-screen backdrop-blur-3xl bg-[#fff4]">
+          <h1 className="text-[10rem] font-extrabold">Sketch</h1>
+          <em className="text-2xl">Graphics Meet Collaboration</em>
+          <div className="flex flex-row gap-4 mt-20">
+            <CSSIoButton
+              onClick={() => {
+                setModalOpen(true);
+                setModalContent("join");
+              }}
+            >
+              <TbArrowsJoin /> Join Room
+            </CSSIoButton>
+            <CSSIoButton
+              onClick={() => {
+                handleCreateRoom();
+                setModalContent("create");
+                setModalOpen(true);
+              }}
+            >
+              <FaPlus /> Create Room
+            </CSSIoButton>
+          </div>
+        </div>
+      </>
     );
   }
 
   if (page === "draw") {
     return (
       <div className="w-full h-screen flex flex-col">
-        <div className="p-4 bg-gray-100 flex items-center justify-between z-20">
+        <div className="p-4 bg-white flex items-center w-fit fixed bottom-0 left-1/2 rounded-full -translate-x-1/2 justify-between z-20 transition-all duration-400">
           <span>
-            Room Code: <b>{roomCode}</b>
+            Room Code:{" "}
+            <b className="bg-gray-200 p-2 rounded-lg">
+              {roomCode.toUpperCase()}
+              <button
+                className="bg-transparent border-none outline-none ml-4 text-lg"
+                onClick={() => {
+                  navigator.clipboard
+                    .writeText(roomCode.toUpperCase())
+                    .catch((err) => {
+                      console.error("Failed to copy text: ", err);
+                    });
+                }}
+              >
+                <BiCopy />
+              </button>
+            </b>
           </span>
           <select
             value={tool}
@@ -211,7 +303,7 @@ const App = () => {
             }}
           ></div>
           {colorPickerOpen && (
-            <div className="fixed top-[40px] left-1/2 -translate-x-1/2">
+            <div className="fixed bottom-[70px] left-1/2 -translate-x-1/2">
               <SketchPicker
                 color={brushColor}
                 onChange={(color: any) => {
@@ -229,13 +321,14 @@ const App = () => {
             value={brushWidth}
             onChange={(e) => setbrushWidth(Number(e.target.value))}
             className="mx-2"
+            id="thick-brush"
           />
           <span>{brushWidth}</span>
         </div>
         <Stage
           width={window.innerWidth}
           height={window.innerHeight - 60}
-          className="flex-1 z-10"
+          className="flex-1 z-10 bg-gray-200"
           onMouseDown={handleMouseDown}
           onMousemove={handleMouseMove}
           onMouseup={handleMouseUp}
